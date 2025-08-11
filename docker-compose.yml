@@ -1,0 +1,28 @@
+version: "3.8"
+services:
+  n8n:
+    image: n8nio/n8n:1.100.1
+    ports:
+      - "5678:5678"
+    environment:
+      - N8N_BASIC_AUTH_ACTIVE=true
+      - N8N_BASIC_AUTH_USER=admin
+      - N8N_BASIC_AUTH_PASSWORD=changeme123
+      - EXECUTIONS_PROCESS=main
+    volumes:
+      - ./n8n-data:/home/node/.n8n
+    restart: unless-stopped
+
+  parser:
+    build: ./backend
+    ports:
+      - "3000:3000"
+    volumes:
+      - ./backend:/usr/src/app 
+      - ./static-gtfs:/usr/src/app/static-gtfs:ro
+      # - ./backend:/usr/src/app:ro
+      - ./data:/usr/src/app/data:rw
+    environment:
+      - PORT=3000
+      - STATIC_GTFS_DIR=/usr/src/app/static-gtfs
+    restart: unless-stopped
