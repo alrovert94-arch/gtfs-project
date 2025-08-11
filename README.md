@@ -82,4 +82,4 @@ Once running, the services will be available at the following locations:
 -   `GET /station/:stationId`: Returns a live timetable for the specified station ID (e.g., `/station/place_kgbs`).
 -   `GET /stations-list`: Returns a list of all available parent stations, which can be used to build a station selector.
 -   `GET /refresh`: Manually triggers a refresh of the GTFS-RT data and generates static JSON snapshots in the `data/` directory. This is the endpoint that the n8n workflow should call.
--   `GET /raw`: Serves the last generated raw `tripupdates.json` snapshot.
+-   `GET /raw`: Serves the last generated raw `tripupdates.json` snapshot.# gtfs-realtime-transit-monitor
