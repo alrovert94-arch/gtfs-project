@@ -5,7 +5,11 @@ const API_BASE = process.env.REACT_APP_API_URL || 'http://localhost:3000';
 function formatTime(iso) {
   if (!iso) return '-';
   const d = new Date(iso);
-  return d.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+  return d.toLocaleTimeString([], { 
+    hour: '2-digit', 
+    minute: '2-digit',
+    timeZone: 'Australia/Brisbane'
+  });
 }
 
 export default function Timetable({ stationId = 'place_kgbs' }) {
@@ -38,7 +42,6 @@ export default function Timetable({ stationId = 'place_kgbs' }) {
       <thead>
         <tr>
           <th style={{ textAlign: 'left' }}>Route</th>
-          <th style={{ textAlign: 'left' }}>Destination</th>
           <th>Scheduled</th>
           <th>Predicted</th>
           <th>Stop / Platform</th>
@@ -49,7 +52,6 @@ export default function Timetable({ stationId = 'place_kgbs' }) {
         {items.map((u, i) => (
           <tr key={i} style={{ borderTop: '1px solid #eee' }}>
             <td>{u.routeName || u.routeId}</td>
-            <td>{u.headsign || '—'}</td>
             <td style={{ textAlign: 'center' }}>{u.scheduled || '—'}</td>
             <td style={{ textAlign: 'center' }}>{formatTime(u.predicted)}</td>
             <td style={{ textAlign: 'center' }}>{u.stopName || u.stopId}</td>
