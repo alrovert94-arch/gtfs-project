@@ -1,6 +1,7 @@
 {
-  "short_name": "React App",
-  "name": "Create React App Sample",
+  "short_name": "KGS Transit",
+  "name": "King George Square - Live Transit",
+  "description": "Real-time transit departures for King George Square, Brisbane",
   "icons": [
     {
       "src": "favicon.ico",
@@ -20,6 +21,8 @@
   ],
   "start_url": ".",
   "display": "standalone",
-  "theme_color": "#000000",
-  "background_color": "#ffffff"
+  "orientation": "portrait-primary",
+  "theme_color": "#4299e1",
+  "background_color": "#f7fafc",
+  "categories": ["travel", "navigation", "utilities"]
 }
