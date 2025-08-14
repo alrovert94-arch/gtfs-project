@@ -176,16 +176,26 @@ app.get('/station/:stationId', async (req, res) => {
         // compute status/ delay text if we have both
         let status = 'Scheduled';
         if (predictedTs && scheduled) {
-          // scheduled is like "14:35:00" — we will compare relative times using today's date
-          const today = new Date();
+          // scheduled is like "14:35:00" in Brisbane timezone
           const [h, m, s] = scheduled.split(':').map(x => parseInt(x, 10));
-          // handle 24+ hour stops (some GTFS use 25:xx for after midnight): clamp to 0-47
           let scheduledHour = isNaN(h) ? 0 : h;
-          let scheduledDate = new Date(today.getFullYear(), today.getMonth(), today.getDate(), scheduledHour % 24, m || 0, s || 0);
-          // if scheduledHour >=24, add a day
-          if (scheduledHour >= 24) scheduledDate.setDate(scheduledDate.getDate() + 1);
-
-          const scheduledMs = scheduledDate.getTime();
+          
+          // Get today's date in Brisbane timezone
+          const today = new Date();
+          const brisbaneOffset = 10 * 60; // Brisbane is UTC+10 (600 minutes)
+          
+          // Create scheduled time assuming it's in Brisbane timezone
+          // First create it as if it's UTC, then adjust for Brisbane offset
+          let scheduledDate = new Date(Date.UTC(today.getUTCFullYear(), today.getUTCMonth(), today.getUTCDate(), scheduledHour % 24, m || 0, s || 0));
+          
+          // Handle 24+ hour stops (some GTFS use 25:xx for after midnight)
+          if (scheduledHour >= 24) {
+            scheduledDate.setUTCDate(scheduledDate.getUTCDate() + 1);
+          }
+          
+          // Adjust for Brisbane timezone (subtract 10 hours to convert Brisbane time to UTC)
+          const scheduledMs = scheduledDate.getTime() - (brisbaneOffset * 60 * 1000);
+          
           const delaySeconds = Math.round((predictedTs - scheduledMs) / 1000);
           if (delaySeconds > 60) status = `Delayed +${Math.round(delaySeconds/60)}m`;
           else if (delaySeconds < -60) status = `Early ${Math.round(-delaySeconds/60)}m`;
