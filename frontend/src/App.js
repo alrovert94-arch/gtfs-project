@@ -144,7 +144,7 @@ function App() {
         </div>
       )}
       
-      <div className="service-alerts">
+      {/* <div className="service-alerts">
         <div className="alert-header">
           <span>⚠️</span>
           <span>Service Notice</span>
@@ -152,7 +152,7 @@ function App() {
         <div className="alert-content">
           Real-time data may be delayed during peak hours. Check official Translink app for service disruptions.
         </div>
-      </div>
+      </div> */}
 
       {/* Quick Stats */}
       {timetableStats && (
