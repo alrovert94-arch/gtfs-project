@@ -7,7 +7,18 @@ const GtfsRealtimeBindings = require('gtfs-realtime-bindings');
 const cors = require('cors');
 
 const app = express();
-app.use(cors());
+// app.use(cors());
+const cors = require('cors');
+
+app.use(cors({
+  origin: [
+    'http://localhost:3001',
+    'https://https://gtfs-king-george.netlify.app',
+    // 'https://your-custom-domain.com' // if using custom domain
+  ],
+  credentials: true
+}));
+
 
 const STATIC_DIR = process.env.STATIC_GTFS_DIR || path.join(__dirname, '../static-gtfs');
 const PORT = process.env.PORT || 3000;
