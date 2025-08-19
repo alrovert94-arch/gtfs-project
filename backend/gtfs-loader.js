@@ -7,7 +7,7 @@ const { parse } = require('csv-parse/sync');
 class GTFSLoader {
   constructor() {
     this.staticDir = process.env.STATIC_GTFS_DIR || path.join(__dirname, '../static-gtfs');
-    this.githubRawBase = process.env.GITHUB_RAW_BASE || '';
+    this.githubReleaseBase = process.env.GITHUB_RELEASE_BASE || '';
     this.useRemoteFiles = process.env.USE_REMOTE_GTFS === 'true';
   }
 
@@ -38,9 +38,9 @@ class GTFSLoader {
     }
 
     // If remote loading is enabled, try to download
-    if (this.useRemoteFiles && this.githubRawBase) {
-      const remoteUrl = `${this.githubRawBase}/${filename}`;
-      console.log(`Downloading ${filename} from GitHub...`);
+    if (this.useRemoteFiles && this.githubReleaseBase) {
+      const remoteUrl = `${this.githubReleaseBase}/${filename}`;
+      console.log(`Downloading ${filename} from GitHub Release...`);
       
       try {
         // Ensure directory exists
