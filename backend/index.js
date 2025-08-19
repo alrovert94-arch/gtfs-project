@@ -70,7 +70,7 @@ routes.forEach(r => {
 });
 
 // helper: fetch and decode GTFS-RT feed (with naive caching)
-async function fetchGtfsRt(url, cacheObj, ttlSeconds = 50) {
+async function fetchGtfsRt(url, cacheObj, ttlSeconds = 240) { // Cache for 4 minutes (240 seconds)
   const now = Date.now();
   if (cacheObj.ts && (now - cacheObj.ts) < ttlSeconds * 1000) {
     return cacheObj.entities;
@@ -137,7 +137,7 @@ app.get('/station/:stationId', async (req, res) => {
     childStops.add(stationId); // include the id itself
 
     // fetch TripUpdates
-    const tripEntities = await fetchGtfsRt(TRIPUPDATES_URL, tripUpdatesCache, 50);
+    const tripEntities = await fetchGtfsRt(TRIPUPDATES_URL, tripUpdatesCache);
 
     const results = [];
 

@@ -250,7 +250,7 @@ const Timetable = forwardRef(function Timetable({ stationId = 'place_kgbs', onUp
 
   useEffect(() => {
     load();
-    const id = setInterval(load, 60000);
+    const id = setInterval(load, 300000); // Update every 5 minutes (300,000ms = 5 * 60 * 1000)
     return () => clearInterval(id);
   }, [stationId]);
 
