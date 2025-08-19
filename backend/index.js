@@ -20,30 +20,74 @@ const VEHICLEPOS_URL = process.env.VEHICLEPOS_URL || 'https://gtfsrt.api.transli
 let tripUpdatesCache = { ts: 0, entities: [] };
 let vehiclesCache = { ts: 0, entities: [] };
 
-function readCSVSync(filePath) {
-  const raw = fs.readFileSync(filePath, 'utf8');
-  return parse(raw, { columns: true, skip_empty_lines: true });
-}
+// function readCSVSync(filePath) {
+//   const raw = fs.readFileSync(filePath, 'utf8');
+//   return parse(raw, { columns: true, skip_empty_lines: true });
+// }
 
-console.log('Loading static GTFS from', STATIC_DIR);
+// console.log('Loading static GTFS from', STATIC_DIR);
 
-// Load static GTFS files
+// // Load static GTFS files
+// let stops = [], stopTimes = [], routes = [];
+// try {
+//   stops = readCSVSync(path.join(STATIC_DIR, 'stops.txt'));
+// } catch (e) {
+//   console.warn('Warning: stops.txt not found or unreadable in', STATIC_DIR);
+// }
+// try {
+//   stopTimes = readCSVSync(path.join(STATIC_DIR, 'stop_times.txt'));
+// } catch (e) {
+//   console.warn('Warning: stop_times.txt not found or unreadable in', STATIC_DIR);
+// }
+// try {
+//   routes = readCSVSync(path.join(STATIC_DIR, 'routes.txt'));
+// } catch (e) {
+//   console.warn('Warning: routes.txt not found or unreadable in', STATIC_DIR);
+// }
+
+
+// Replace the existing file loading section (lines ~23-46) with:
+
+const GTFSLoader = require('./gtfs-loader');
+
+// Initialize GTFS loader
+const gtfsLoader = new GTFSLoader();
+
+// Global variables for GTFS data
 let stops = [], stopTimes = [], routes = [];
-try {
-  stops = readCSVSync(path.join(STATIC_DIR, 'stops.txt'));
-} catch (e) {
-  console.warn('Warning: stops.txt not found or unreadable in', STATIC_DIR);
+
+// Load GTFS data asynchronously
+async function initializeGTFS() {
+  try {
+    const data = await gtfsLoader.loadAllFiles();
+    stops = data.stops;
+    stopTimes = data.stopTimes;
+    routes = data.routes;
+    
+    // Build helper maps (keep existing code)
+    stops.forEach(s => {
+      stopNameById[s.stop_id] = s.stop_name;
+      if (s.parent_station) {
+        if (!parentStationMap[s.parent_station]) {
+          parentStationMap[s.parent_station] = [];
+        }
+        parentStationMap[s.parent_station].push(s.stop_id);
+      }
+    });
+
+    routes.forEach(r => {
+      routeNameById[r.route_id] = (r.route_short_name ? r.route_short_name + ' ' : '') + (r.route_long_name || '');
+    });
+
+    console.log('GTFS data loaded successfully');
+  } catch (error) {
+    console.error('Failed to load GTFS data:', error);
+    // Continue with empty data - app will show demo mode
+  }
 }
-try {
-  stopTimes = readCSVSync(path.join(STATIC_DIR, 'stop_times.txt'));
-} catch (e) {
-  console.warn('Warning: stop_times.txt not found or unreadable in', STATIC_DIR);
-}
-try {
-  routes = readCSVSync(path.join(STATIC_DIR, 'routes.txt'));
-} catch (e) {
-  console.warn('Warning: routes.txt not found or unreadable in', STATIC_DIR);
-}
+
+// Initialize GTFS data on startup
+initializeGTFS();
 
 // Build helper maps
 const stopNameById = {};
@@ -116,9 +160,22 @@ async function fetchGtfsRt(url, cacheObj, ttlSeconds = 240) { // Cache for 4 min
 }
 
 // API: health
+// app.get('/health', (req, res) => {
+//   res.json({ ok: true, time: new Date().toISOString() });
+// });
+// Add this route in index.js
 app.get('/health', (req, res) => {
-  res.json({ ok: true, time: new Date().toISOString() });
+  res.json({
+    ok: true,
+    time: new Date().toISOString(),
+    gtfsLoaded: {
+      stops: stops.length,
+      stopTimes: stopTimes.length,
+      routes: routes.length
+    }
+  });
 });
+
 
 // API: station
 // Example: /station/place_kgbs?count=20
