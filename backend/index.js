@@ -12,7 +12,7 @@ const app = express();
 app.use(cors({
   origin: [
     'http://localhost:3001',
-    'https://https://gtfs-king-george.netlify.app',
+    'https://gtfs-king-george.netlify.app',
     // 'https://your-custom-domain.com' // if using custom domain
   ],
   credentials: true
