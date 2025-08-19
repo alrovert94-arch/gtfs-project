@@ -186,6 +186,15 @@ app.get('/health', (req, res) => {
   });
 });
 
+// Add root route
+app.get('/', (req, res) => {
+  res.json({ 
+    message: 'GTFS Transit API', 
+    version: '1.0.0',
+    endpoints: ['/health', '/station/:stationId', '/refresh']
+  });
+});
+
 
 // API: station
 // Example: /station/place_kgbs?count=20
