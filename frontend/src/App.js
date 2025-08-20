@@ -187,7 +187,7 @@ function App() {
           <div className="footer-info">
             <span>🚌 Real-time data from Translink Brisbane</span>
             <span>•</span>
-            <span>Updates every 5 minutes</span>
+            <span>Updates every 3 minutes</span>
           </div>
           <div className="footer-note">
             Times shown in Brisbane timezone (AEST/AEDT)
