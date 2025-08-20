@@ -124,7 +124,7 @@ routes.forEach(r => {
 });
 
 // helper: fetch and decode GTFS-RT feed (with naive caching)
-async function fetchGtfsRt(url, cacheObj, ttlSeconds = 240) { // Cache for 4 minutes (240 seconds)
+async function fetchGtfsRt(url, cacheObj, ttlSeconds = 180) { // Cache for 3 minutes (180 seconds)
   const now = Date.now();
   if (cacheObj.ts && (now - cacheObj.ts) < ttlSeconds * 1000) {
     return cacheObj.entities;
