@@ -17,35 +17,10 @@ class GTFSLoader {
 
   async downloadFile(url, localPath) {
     return new Promise((resolve, reject) => {
-      // For Google Drive large files, try direct usercontent URL first
-      const fileIdMatch = url.match(/id=([^&]+)/);
-      if (fileIdMatch && url.includes('drive.google.com')) {
-        const fileId = fileIdMatch[1];
-        const directUrl = `https://drive.usercontent.google.com/download?id=${fileId}&export=download&authuser=0&confirm=t`;
-        console.log(`Trying direct Google Drive download: ${directUrl}`);
-        
-        // Try direct download first
-        this.downloadFileSimple(directUrl, localPath)
-          .then(resolve)
-          .catch((error) => {
-            console.log(`Direct download failed: ${error.message}, trying original URL...`);
-            // Fallback to original URL with HTML parsing
-            this.downloadFileWithHtmlParsing(url, localPath).then(resolve).catch(reject);
-          });
-        return;
-      }
-      
-      // For non-Google Drive URLs, use simple download
-      this.downloadFileSimple(url, localPath).then(resolve).catch(reject);
-    });
-  }
-
-  async downloadFileSimple(url, localPath) {
-    return new Promise((resolve, reject) => {
       const file = fs.createWriteStream(localPath);
       
       const handleResponse = (response) => {
-        // Handle redirects
+        // Handle redirects (301, 302, 303, 307, 308)
         if (response.statusCode >= 300 && response.statusCode < 400 && response.headers.location) {
           console.log(`Following redirect to: ${response.headers.location}`);
           https.get(response.headers.location, handleResponse).on('error', reject);
@@ -57,28 +32,7 @@ class GTFSLoader {
           return;
         }
         
-        response.pipe(file);
-        file.on('finish', () => {
-          file.close();
-          resolve();
-        });
-      };
-      
-      https.get(url, handleResponse).on('error', reject);
-    });
-  }
-
-  async downloadFileWithHtmlParsing(url, localPath) {
-    return new Promise((resolve, reject) => {
-      const file = fs.createWriteStream(localPath);
-      
-      const handleResponse = (response) => {
-        if (response.statusCode !== 200) {
-          reject(new Error(`Failed to download: ${response.statusCode}`));
-          return;
-        }
-        
-        // Check if this is HTML
+        // Check if this is Google Drive virus scan HTML page
         let isHtmlResponse = false;
         let htmlBuffer = '';
         
@@ -88,7 +42,7 @@ class GTFSLoader {
             if (chunkStr.includes('<!DOCTYPE html>') || chunkStr.includes('<html')) {
               isHtmlResponse = true;
               htmlBuffer = chunkStr;
-              console.log('Detected HTML response, parsing...');
+              console.log('Detected Google Drive virus scan page, extracting download link...');
               return;
             }
           }
@@ -98,15 +52,54 @@ class GTFSLoader {
             return;
           }
           
+          // Normal file download
           file.write(chunk);
         });
         
         response.on('end', () => {
           if (isHtmlResponse) {
-            file.close();
-            fs.unlinkSync(localPath);
-            reject(new Error('Received HTML instead of file content'));
-            return;
+            // Extract the actual download URL from HTML - try multiple patterns
+            console.log('Parsing HTML for download link...');
+            
+            // Pattern 1: Standard href with export=download
+            let downloadMatch = htmlBuffer.match(/href="([^"]*export=download[^"]*)"/);
+            
+            // Pattern 2: Form action with download
+            if (!downloadMatch) {
+              downloadMatch = htmlBuffer.match(/action="([^"]*download[^"]*)"/);
+            }
+            
+            // Pattern 3: Any usercontent.google.com download link
+            if (!downloadMatch) {
+              downloadMatch = htmlBuffer.match(/href="(https:\/\/drive\.usercontent\.google\.com\/download[^"]*)"/);
+            }
+            
+            // Pattern 4: Any URL with the file ID and download
+            if (!downloadMatch) {
+              const fileIdMatch = url.match(/id=([^&]+)/);
+              if (fileIdMatch) {
+                const fileId = fileIdMatch[1];
+                const actualDownloadUrl = `https://drive.usercontent.google.com/download?id=${fileId}&export=download&authuser=0&confirm=t`;
+                console.log(`Using constructed download URL: ${actualDownloadUrl}`);
+                file.close();
+                fs.unlinkSync(localPath); // Remove empty file
+                https.get(actualDownloadUrl, handleResponse).on('error', reject);
+                return;
+              }
+            }
+            
+            if (downloadMatch) {
+              const actualDownloadUrl = downloadMatch[1].replace(/&amp;/g, '&');
+              console.log(`Found actual download URL: ${actualDownloadUrl}`);
+              file.close();
+              fs.unlinkSync(localPath); // Remove empty file
+              https.get(actualDownloadUrl, handleResponse).on('error', reject);
+              return;
+            } else {
+              console.log('HTML content preview:', htmlBuffer.substring(0, 500));
+              reject(new Error('Could not extract download URL from Google Drive virus scan page'));
+              return;
+            }
           }
           
           file.end();
