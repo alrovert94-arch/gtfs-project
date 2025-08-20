@@ -58,16 +58,45 @@ class GTFSLoader {
         
         response.on('end', () => {
           if (isHtmlResponse) {
-            // Extract the actual download URL from HTML
-            const downloadMatch = htmlBuffer.match(/href="([^"]*export=download[^"]*)"/);
+            // Extract the actual download URL from HTML - try multiple patterns
+            console.log('Parsing HTML for download link...');
+            
+            // Pattern 1: Standard href with export=download
+            let downloadMatch = htmlBuffer.match(/href="([^"]*export=download[^"]*)"/);
+            
+            // Pattern 2: Form action with download
+            if (!downloadMatch) {
+              downloadMatch = htmlBuffer.match(/action="([^"]*download[^"]*)"/);
+            }
+            
+            // Pattern 3: Any usercontent.google.com download link
+            if (!downloadMatch) {
+              downloadMatch = htmlBuffer.match(/href="(https:\/\/drive\.usercontent\.google\.com\/download[^"]*)"/);
+            }
+            
+            // Pattern 4: Any URL with the file ID and download
+            if (!downloadMatch) {
+              const fileIdMatch = url.match(/id=([^&]+)/);
+              if (fileIdMatch) {
+                const fileId = fileIdMatch[1];
+                const actualDownloadUrl = `https://drive.usercontent.google.com/download?id=${fileId}&export=download&authuser=0&confirm=t`;
+                console.log(`Using constructed download URL: ${actualDownloadUrl}`);
+                file.close();
+                fs.unlinkSync(localPath); // Remove empty file
+                https.get(actualDownloadUrl, handleResponse).on('error', reject);
+                return;
+              }
+            }
+            
             if (downloadMatch) {
               const actualDownloadUrl = downloadMatch[1].replace(/&amp;/g, '&');
-              console.log(`Found actual download URL, retrying...`);
+              console.log(`Found actual download URL: ${actualDownloadUrl}`);
               file.close();
               fs.unlinkSync(localPath); // Remove empty file
               https.get(actualDownloadUrl, handleResponse).on('error', reject);
               return;
             } else {
+              console.log('HTML content preview:', htmlBuffer.substring(0, 500));
               reject(new Error('Could not extract download URL from Google Drive virus scan page'));
               return;
             }
