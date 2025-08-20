@@ -464,7 +464,7 @@ app.get('/stations-list', (req, res) => {
 });
 
 
-app.listen(PORT, () => {
+app.listen(PORT, '0.0.0.0', () => {
   console.log(`GTFS-RT parser listening on port ${PORT}`);
   console.log(`TripUpdates source: ${TRIPUPDATES_URL}`);
 });
