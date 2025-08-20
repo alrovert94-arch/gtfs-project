@@ -32,7 +32,50 @@ class GTFSLoader {
           return;
         }
         
-        response.pipe(file);
+        // Check if this is Google Drive virus scan HTML page
+        let isHtmlResponse = false;
+        let htmlBuffer = '';
+        
+        response.on('data', (chunk) => {
+          if (!isHtmlResponse) {
+            const chunkStr = chunk.toString();
+            if (chunkStr.includes('<!DOCTYPE html>') || chunkStr.includes('<html')) {
+              isHtmlResponse = true;
+              htmlBuffer = chunkStr;
+              console.log('Detected Google Drive virus scan page, extracting download link...');
+              return;
+            }
+          }
+          
+          if (isHtmlResponse) {
+            htmlBuffer += chunk.toString();
+            return;
+          }
+          
+          // Normal file download
+          file.write(chunk);
+        });
+        
+        response.on('end', () => {
+          if (isHtmlResponse) {
+            // Extract the actual download URL from HTML
+            const downloadMatch = htmlBuffer.match(/href="([^"]*export=download[^"]*)"/);
+            if (downloadMatch) {
+              const actualDownloadUrl = downloadMatch[1].replace(/&amp;/g, '&');
+              console.log(`Found actual download URL, retrying...`);
+              file.close();
+              fs.unlinkSync(localPath); // Remove empty file
+              https.get(actualDownloadUrl, handleResponse).on('error', reject);
+              return;
+            } else {
+              reject(new Error('Could not extract download URL from Google Drive virus scan page'));
+              return;
+            }
+          }
+          
+          file.end();
+        });
+        
         file.on('finish', () => {
           file.close();
           resolve();
