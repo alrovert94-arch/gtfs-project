@@ -18,17 +18,28 @@ class GTFSLoader {
   async downloadFile(url, localPath) {
     return new Promise((resolve, reject) => {
       const file = fs.createWriteStream(localPath);
-      https.get(url, (response) => {
+      
+      const handleResponse = (response) => {
+        // Handle redirects (301, 302, 303, 307, 308)
+        if (response.statusCode >= 300 && response.statusCode < 400 && response.headers.location) {
+          console.log(`Following redirect to: ${response.headers.location}`);
+          https.get(response.headers.location, handleResponse).on('error', reject);
+          return;
+        }
+        
         if (response.statusCode !== 200) {
           reject(new Error(`Failed to download: ${response.statusCode}`));
           return;
         }
+        
         response.pipe(file);
         file.on('finish', () => {
           file.close();
           resolve();
         });
-      }).on('error', reject);
+      };
+      
+      https.get(url, handleResponse).on('error', reject);
     });
   }
 
