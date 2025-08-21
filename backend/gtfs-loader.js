@@ -16,7 +16,7 @@ class GTFSLoader {
     };
   }
 
-  async downloadFile(url, localPath) {
+  async downloadFile(url, localPath, filename) {
     return new Promise((resolve, reject) => {
       const file = fs.createWriteStream(localPath);
       
@@ -122,11 +122,22 @@ class GTFSLoader {
               return;
             }
             
-            // Check if it's valid CSV header
-            if (!firstLine.includes('trip_id') || !firstLine.includes('stop_id')) {
-              console.log('Downloaded file does not contain expected CSV headers');
+            // Check if it's valid CSV header based on file type
+            let isValidHeader = false;
+            if (filename === 'stop_times.txt') {
+              isValidHeader = firstLine.includes('trip_id') && firstLine.includes('stop_id');
+            } else if (filename === 'stops.txt') {
+              isValidHeader = firstLine.includes('stop_id') && firstLine.includes('stop_name');
+            } else if (filename === 'routes.txt') {
+              isValidHeader = firstLine.includes('route_id') && firstLine.includes('route_type');
+            } else {
+              isValidHeader = true; // Unknown file type, assume valid
+            }
+            
+            if (!isValidHeader) {
+              console.log(`Downloaded file does not contain expected CSV headers for ${filename}`);
               fs.unlinkSync(localPath); // Remove invalid file
-              reject(new Error('Downloaded file is not valid GTFS stop_times.txt'));
+              reject(new Error(`Downloaded file is not valid GTFS ${filename}`));
               return;
             }
             
@@ -161,7 +172,7 @@ class GTFSLoader {
         // Ensure directory exists
         fs.mkdirSync(this.staticDir, { recursive: true });
         
-        await this.downloadFile(remoteUrl, localPath);
+        await this.downloadFile(remoteUrl, localPath, filename);
         console.log(`Downloaded: ${filename}`);
         return localPath;
       } catch (error) {
