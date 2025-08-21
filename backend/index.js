@@ -89,6 +89,12 @@ async function initializeGTFS() {
       routeNameById[r.route_id] = (r.route_short_name ? r.route_short_name + ' ' : '') + (r.route_long_name || '');
     });
 
+    // Build scheduled times map
+    stopTimes.forEach(st => {
+      const key = `${st.trip_id}|${st.stop_id}`;
+      scheduledByTripStop[key] = st.departure_time || st.arrival_time || null;
+    });
+
     console.log('GTFS data loaded successfully');
   } catch (error) {
     console.error('Failed to load GTFS data:', error);
@@ -102,26 +108,14 @@ initializeGTFS();
 // Build helper maps
 const stopNameById = {};
 const parentStationMap = {}; // parent_station -> [stop_id]
-stops.forEach(s => {
-  stopNameById[s.stop_id] = s.stop_name || s.stop_desc || '';
-  if (s.parent_station && s.parent_station.trim()) {
-    parentStationMap[s.parent_station] = parentStationMap[s.parent_station] || [];
-    parentStationMap[s.parent_station].push(s.stop_id);
-  }
-});
+
+// Remove duplicate code - helper maps are built inside initializeGTFS()
 
 // Map for scheduled times: (trip_id|stop_id) -> departure_time string
 const scheduledByTripStop = {};
-stopTimes.forEach(st => {
-  const key = `${st.trip_id}|${st.stop_id}`;
-  scheduledByTripStop[key] = st.departure_time || st.arrival_time || null;
-});
 
-// route name map
+// route name map  
 const routeNameById = {};
-routes.forEach(r => {
-  routeNameById[r.route_id] = (r.route_short_name ? r.route_short_name + ' ' : '') + (r.route_long_name || '');
-});
 
 // helper: fetch and decode GTFS-RT feed (with naive caching)
 async function fetchGtfsRt(url, cacheObj, ttlSeconds = 180) { // Cache for 3 minutes (180 seconds)
