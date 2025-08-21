@@ -333,6 +333,7 @@ app.get('/station/:stationId', async (req, res) => {
               // Only use if within 30 minutes difference
               if (bestMatch && smallestDiff <= 30) {
                 scheduled = bestMatch.time;
+                console.log(`DEBUG: Found scheduled time ${scheduled} for route ${routeShortName} at stop ${stopId}`);
               }
             } else {
               // No predicted time, use first available schedule
@@ -370,6 +371,15 @@ app.get('/station/:stationId', async (req, res) => {
           else status = 'On time';
         } else if (tu.delay) {
           status = (tu.delay > 0) ? `Delayed ${Math.round(tu.delay/60)}m` : 'On time';
+        }
+
+        // Only include future departures (within next 2 hours, not more than 5 minutes in the past)
+        const now = Date.now();
+        const maxFutureMs = 2 * 60 * 60 * 1000; // 2 hours
+        const maxPastMs = 5 * 60 * 1000; // 5 minutes
+        
+        if (predictedTs && (predictedTs < now - maxPastMs || predictedTs > now + maxFutureMs)) {
+          continue; // Skip this departure - too far in past or future
         }
 
         results.push({
