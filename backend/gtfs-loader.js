@@ -4,6 +4,7 @@ const path = require('path');
 const https = require('https');
 const { parse } = require('csv-parse/sync');
 
+
 class GTFSLoader {
   constructor() {
     this.staticDir = process.env.STATIC_GTFS_DIR || path.join(__dirname, '../static-gtfs');
