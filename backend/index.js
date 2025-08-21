@@ -6,6 +6,18 @@ const { parse } = require('csv-parse/sync');
 const GtfsRealtimeBindings = require('gtfs-realtime-bindings');
 const cors = require('cors');
 
+// Prevent crashes from uncaught exceptions
+process.on('uncaughtException', (error) => {
+  console.error('Uncaught Exception:', error);
+  console.error('Stack:', error.stack);
+  // Don't exit - keep service running
+});
+
+process.on('unhandledRejection', (reason, promise) => {
+  console.error('Unhandled Rejection at:', promise, 'reason:', reason);
+  // Don't exit - keep service running
+});
+
 const app = express();
 // app.use(cors());
 
@@ -74,26 +86,54 @@ async function initializeGTFS() {
     stopTimes = data.stopTimes;
     routes = data.routes;
     
-    // Build helper maps (keep existing code)
-    stops.forEach(s => {
-      stopNameById[s.stop_id] = s.stop_name;
-      if (s.parent_station) {
-        if (!parentStationMap[s.parent_station]) {
-          parentStationMap[s.parent_station] = [];
+    // Build helper maps with defensive programming
+    console.log(`Processing ${stops.length} stops, ${routes.length} routes, ${stopTimes.length} stop_times`);
+    
+    // Safely process stops
+    if (Array.isArray(stops)) {
+      stops.forEach((s, index) => {
+        try {
+          if (s && s.stop_id) {
+            stopNameById[s.stop_id] = s.stop_name || s.stop_desc || '';
+            if (s.parent_station && s.parent_station.trim()) {
+              if (!parentStationMap[s.parent_station]) {
+                parentStationMap[s.parent_station] = [];
+              }
+              parentStationMap[s.parent_station].push(s.stop_id);
+            }
+          }
+        } catch (error) {
+          console.warn(`Error processing stop at index ${index}:`, error.message);
         }
-        parentStationMap[s.parent_station].push(s.stop_id);
-      }
-    });
+      });
+    }
 
-    routes.forEach(r => {
-      routeNameById[r.route_id] = (r.route_short_name ? r.route_short_name + ' ' : '') + (r.route_long_name || '');
-    });
+    // Safely process routes
+    if (Array.isArray(routes)) {
+      routes.forEach((r, index) => {
+        try {
+          if (r && r.route_id) {
+            routeNameById[r.route_id] = (r.route_short_name ? r.route_short_name + ' ' : '') + (r.route_long_name || '');
+          }
+        } catch (error) {
+          console.warn(`Error processing route at index ${index}:`, error.message);
+        }
+      });
+    }
 
-    // Build scheduled times map
-    stopTimes.forEach(st => {
-      const key = `${st.trip_id}|${st.stop_id}`;
-      scheduledByTripStop[key] = st.departure_time || st.arrival_time || null;
-    });
+    // Safely process stop_times
+    if (Array.isArray(stopTimes)) {
+      stopTimes.forEach((st, index) => {
+        try {
+          if (st && st.trip_id && st.stop_id) {
+            const key = `${st.trip_id}|${st.stop_id}`;
+            scheduledByTripStop[key] = st.departure_time || st.arrival_time || null;
+          }
+        } catch (error) {
+          console.warn(`Error processing stop_time at index ${index}:`, error.message);
+        }
+      });
+    }
 
     console.log('GTFS data loaded successfully');
   } catch (error) {
