@@ -1,3 +1,1 @@
-static-gtfs/stop_times.txt filter=lfs diff=lfs merge=lfs -text
-static-gtfs/*.txt filter=lfs diff=lfs merge=lfs -text
-backend/static-gtfs/*.txt filter=lfs diff=lfs merge=lfs -text
+# LFS removed - using environment variable URLs instead
