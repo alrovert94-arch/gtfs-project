@@ -136,6 +136,7 @@ async function initializeGTFS() {
     }
 
     console.log('GTFS data loaded successfully');
+    console.log(`Scheduled times loaded: ${Object.keys(scheduledByTripStop).length}`);
   } catch (error) {
     console.error('Failed to load GTFS data:', error);
     // Continue with empty data - app will show demo mode
@@ -282,6 +283,12 @@ app.get('/station/:stationId', async (req, res) => {
 
         // scheduled time (from static stop_times if available)
         const scheduled = scheduledByTripStop[`${tripId}|${stopId}`] || null;
+        
+        // Debug: Log first few mismatches to understand the pattern
+        if (!scheduled && Object.keys(scheduledByTripStop).length > 0) {
+          const sampleKeys = Object.keys(scheduledByTripStop).slice(0, 3);
+          console.log(`DEBUG: No scheduled time for ${tripId}|${stopId}. Sample static keys:`, sampleKeys);
+        }
 
         // compute status/ delay text if we have both
         let status = 'Scheduled';
