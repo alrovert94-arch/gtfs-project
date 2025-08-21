@@ -350,6 +350,15 @@ app.get('/station/:stationId', async (req, res) => {
             }
           }
         }
+        
+        // Final fallback: create estimated scheduled time from predicted time
+        if (!scheduled && predictedTs) {
+          const predictedTime = new Date(predictedTs);
+          const hours = String(predictedTime.getHours()).padStart(2, '0');
+          const minutes = String(predictedTime.getMinutes()).padStart(2, '0');
+          scheduled = `${hours}:${minutes}:00`;
+          console.log(`DEBUG: Using estimated scheduled time ${scheduled} for route ${routeId}`);
+        }
 
         // compute status/ delay text if we have both
         let status = 'Scheduled';
