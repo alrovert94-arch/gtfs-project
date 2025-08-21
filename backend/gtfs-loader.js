@@ -241,36 +241,54 @@ class GTFSLoader {
     return new Promise((resolve, reject) => {
       const results = [];
       let rowCount = 0;
-      const maxRows = filename === 'stop_times.txt' ? 500000 : 100000; // Limit rows to prevent memory issues
+      const maxRows = filename === 'stop_times.txt' ? 200000 : 100000; // Reduced limit for memory safety
+      let limitReached = false;
       
-      console.log(`Streaming parse with max ${maxRows} rows for ${filename}`);
+      console.log(`Streaming parse with HARD LIMIT of ${maxRows} rows for ${filename}`);
       
       const parser = parseStream({ 
         columns: true, 
-        skip_empty_lines: true,
-        max_records: maxRows // Built-in limit
+        skip_empty_lines: true
+        // Removed max_records - implementing manual limit
       });
       
       parser.on('readable', function() {
         let record;
-        while (record = parser.read()) {
+        while ((record = parser.read()) && !limitReached) {
           results.push(record);
           rowCount++;
           
           if (rowCount % 50000 === 0) {
             console.log(`Processed ${rowCount} rows of ${filename}...`);
           }
+          
+          // Manual hard limit enforcement
+          if (rowCount >= maxRows) {
+            limitReached = true;
+            console.log(`HARD LIMIT REACHED: Stopping at ${rowCount} rows to prevent memory issues`);
+            parser.destroy(); // Stop parsing immediately
+            resolve(results);
+            return;
+          }
         }
       });
       
       parser.on('end', () => {
-        console.log(`Completed parsing ${filename}: ${results.length} rows loaded`);
-        resolve(results);
+        if (!limitReached) {
+          console.log(`Completed parsing ${filename}: ${results.length} rows loaded`);
+          resolve(results);
+        }
       });
       
       parser.on('error', (error) => {
         console.error(`Error parsing ${filename}:`, error.message);
         reject(error);
+      });
+      
+      parser.on('close', () => {
+        if (limitReached) {
+          console.log(`Parser closed after reaching limit: ${results.length} rows loaded`);
+        }
       });
       
       // Create read stream and pipe to parser
