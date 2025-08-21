@@ -238,31 +238,36 @@ class GTFSLoader {
       
       console.log(`Streaming parse with max ${maxRows} rows for ${filename}`);
       
-      const stream = fs.createReadStream(filePath)
-        .pipe(parse({ 
-          columns: true, 
-          skip_empty_lines: true,
-          max_records: maxRows // Built-in limit
-        }));
+      const parser = parse({ 
+        columns: true, 
+        skip_empty_lines: true,
+        max_records: maxRows // Built-in limit
+      });
       
-      stream.on('data', (row) => {
-        results.push(row);
-        rowCount++;
-        
-        if (rowCount % 50000 === 0) {
-          console.log(`Processed ${rowCount} rows of ${filename}...`);
+      parser.on('readable', function() {
+        let record;
+        while (record = parser.read()) {
+          results.push(record);
+          rowCount++;
+          
+          if (rowCount % 50000 === 0) {
+            console.log(`Processed ${rowCount} rows of ${filename}...`);
+          }
         }
       });
       
-      stream.on('end', () => {
+      parser.on('end', () => {
         console.log(`Completed parsing ${filename}: ${results.length} rows loaded`);
         resolve(results);
       });
       
-      stream.on('error', (error) => {
+      parser.on('error', (error) => {
         console.error(`Error parsing ${filename}:`, error.message);
         reject(error);
       });
+      
+      // Create read stream and pipe to parser
+      fs.createReadStream(filePath).pipe(parser);
     });
   }
 
