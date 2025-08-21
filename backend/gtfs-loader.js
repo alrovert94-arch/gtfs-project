@@ -111,6 +111,29 @@ class GTFSLoader {
           
           // Validate downloaded file is actually CSV, not HTML
           try {
+            const stats = fs.statSync(localPath);
+            const fileSizeBytes = stats.size;
+            const fileSizeMB = (fileSizeBytes / (1024 * 1024)).toFixed(2);
+            
+            console.log(`Downloaded file size: ${fileSizeMB}MB (${fileSizeBytes} bytes)`);
+            
+            // Check minimum file size expectations
+            let expectedMinSizeMB = 0.1; // Default 100KB minimum
+            if (filename === 'stop_times.txt') {
+              expectedMinSizeMB = 100; // Expect at least 100MB for stop_times
+            } else if (filename === 'stops.txt') {
+              expectedMinSizeMB = 1; // Expect at least 1MB for stops
+            } else if (filename === 'routes.txt') {
+              expectedMinSizeMB = 0.1; // Expect at least 100KB for routes
+            }
+            
+            if (fileSizeMB < expectedMinSizeMB) {
+              console.log(`File too small: ${fileSizeMB}MB < ${expectedMinSizeMB}MB expected - likely HTML redirect page`);
+              fs.unlinkSync(localPath); // Remove tiny file
+              reject(new Error(`Downloaded file too small (${fileSizeMB}MB) - expected at least ${expectedMinSizeMB}MB`));
+              return;
+            }
+            
             const fileContent = fs.readFileSync(localPath, 'utf8');
             const firstLine = fileContent.split('\n')[0];
             
