@@ -3,6 +3,7 @@ const fs = require('fs');
 const path = require('path');
 const https = require('https');
 const { parse } = require('csv-parse/sync');
+const { parse: parseStream } = require('csv-parse');
 
 
 class GTFSLoader {
@@ -134,34 +135,40 @@ class GTFSLoader {
               return;
             }
             
-            const fileContent = fs.readFileSync(localPath, 'utf8');
-            const firstLine = fileContent.split('\n')[0];
-            
-            // Check if it's HTML (virus scan page)
-            if (firstLine.includes('<!DOCTYPE html>') || firstLine.includes('<html')) {
-              console.log('Downloaded file is HTML virus scan page, not CSV data');
-              fs.unlinkSync(localPath); // Remove HTML file
-              reject(new Error('Downloaded HTML instead of CSV - Google Drive virus scan blocking'));
-              return;
-            }
-            
-            // Check if it's valid CSV header based on file type
-            let isValidHeader = false;
-            if (filename === 'stop_times.txt') {
-              isValidHeader = firstLine.includes('trip_id') && firstLine.includes('stop_id');
-            } else if (filename === 'stops.txt') {
-              isValidHeader = firstLine.includes('stop_id') && firstLine.includes('stop_name');
-            } else if (filename === 'routes.txt') {
-              isValidHeader = firstLine.includes('route_id') && firstLine.includes('route_type');
+            // For large files, skip content validation to prevent memory issues
+            if (fileSizeMB > 50) {
+              console.log(`Large file (${fileSizeMB}MB) - skipping content validation to prevent memory issues`);
             } else {
-              isValidHeader = true; // Unknown file type, assume valid
-            }
-            
-            if (!isValidHeader) {
-              console.log(`Downloaded file does not contain expected CSV headers for ${filename}`);
-              fs.unlinkSync(localPath); // Remove invalid file
-              reject(new Error(`Downloaded file is not valid GTFS ${filename}`));
-              return;
+              // Only validate smaller files
+              const fileContent = fs.readFileSync(localPath, 'utf8');
+              const firstLine = fileContent.split('\n')[0];
+              
+              // Check if it's HTML (virus scan page)
+              if (firstLine.includes('<!DOCTYPE html>') || firstLine.includes('<html')) {
+                console.log('Downloaded file is HTML virus scan page, not CSV data');
+                fs.unlinkSync(localPath); // Remove HTML file
+                reject(new Error('Downloaded HTML instead of CSV - Google Drive virus scan blocking'));
+                return;
+              }
+              
+              // Check if it's valid CSV header based on file type
+              let isValidHeader = false;
+              if (filename === 'stop_times.txt') {
+                isValidHeader = firstLine.includes('trip_id') && firstLine.includes('stop_id');
+              } else if (filename === 'stops.txt') {
+                isValidHeader = firstLine.includes('stop_id') && firstLine.includes('stop_name');
+              } else if (filename === 'routes.txt') {
+                isValidHeader = firstLine.includes('route_id') && firstLine.includes('route_type');
+              } else {
+                isValidHeader = true; // Unknown file type, assume valid
+              }
+              
+              if (!isValidHeader) {
+                console.log(`Downloaded file does not contain expected CSV headers for ${filename}`);
+                fs.unlinkSync(localPath); // Remove invalid file
+                reject(new Error(`Downloaded file is not valid GTFS ${filename}`));
+                return;
+              }
             }
             
             console.log('File validation passed - valid CSV data downloaded');
@@ -238,7 +245,7 @@ class GTFSLoader {
       
       console.log(`Streaming parse with max ${maxRows} rows for ${filename}`);
       
-      const parser = parse({ 
+      const parser = parseStream({ 
         columns: true, 
         skip_empty_lines: true,
         max_records: maxRows // Built-in limit
