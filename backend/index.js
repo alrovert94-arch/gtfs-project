@@ -121,13 +121,30 @@ async function initializeGTFS() {
       });
     }
 
-    // Safely process stop_times
+    // Safely process stop_times with flexible matching
     if (Array.isArray(stopTimes)) {
       stopTimes.forEach((st, index) => {
         try {
           if (st && st.trip_id && st.stop_id) {
             const key = `${st.trip_id}|${st.stop_id}`;
             scheduledByTripStop[key] = st.departure_time || st.arrival_time || null;
+            
+            // Create route-based lookup for fallback matching
+            // We'll match using route short names from the routes data
+            for (const route of routes) {
+              if (route.route_short_name && st.trip_id.includes(route.route_short_name)) {
+                const routeKey = `${route.route_short_name}|${st.stop_id}`;
+                if (!scheduledByRouteStop[routeKey]) {
+                  scheduledByRouteStop[routeKey] = [];
+                }
+                scheduledByRouteStop[routeKey].push({
+                  time: st.departure_time || st.arrival_time,
+                  tripId: st.trip_id,
+                  routeId: route.route_id
+                });
+                break; // Only match first route
+              }
+            }
           }
         } catch (error) {
           console.warn(`Error processing stop_time at index ${index}:`, error.message);
@@ -137,6 +154,7 @@ async function initializeGTFS() {
 
     console.log('GTFS data loaded successfully');
     console.log(`Scheduled times loaded: ${Object.keys(scheduledByTripStop).length}`);
+    console.log(`Route-based schedules loaded: ${Object.keys(scheduledByRouteStop).length}`);
   } catch (error) {
     console.error('Failed to load GTFS data:', error);
     // Continue with empty data - app will show demo mode
@@ -154,6 +172,9 @@ const parentStationMap = {}; // parent_station -> [stop_id]
 
 // Map for scheduled times: (trip_id|stop_id) -> departure_time string
 const scheduledByTripStop = {};
+
+// Route-based fallback lookup: (route_id|stop_id) -> [{ time, tripId }]
+const scheduledByRouteStop = {};
 
 // route name map  
 const routeNameById = {};
@@ -282,12 +303,42 @@ app.get('/station/:stationId', async (req, res) => {
         }
 
         // scheduled time (from static stop_times if available)
-        const scheduled = scheduledByTripStop[`${tripId}|${stopId}`] || null;
+        let scheduled = scheduledByTripStop[`${tripId}|${stopId}`] || null;
         
-        // Debug: Log first few mismatches to understand the pattern
-        if (!scheduled && Object.keys(scheduledByTripStop).length > 0) {
-          const sampleKeys = Object.keys(scheduledByTripStop).slice(0, 3);
-          console.log(`DEBUG: No scheduled time for ${tripId}|${stopId}. Sample static keys:`, sampleKeys);
+        // Fallback: try route-based matching if exact trip match fails
+        if (!scheduled && routeId) {
+          // Extract route short name from routeId (e.g., "340-4158" -> "340")
+          const routeShortName = routeId.split('-')[0];
+          const routeSchedules = scheduledByRouteStop[`${routeShortName}|${stopId}`];
+          
+          if (routeSchedules && routeSchedules.length > 0) {
+            // Find the closest scheduled time to the predicted time
+            if (predictedTs) {
+              const predictedTime = new Date(predictedTs);
+              const predictedHour = predictedTime.getHours();
+              const predictedMinute = predictedTime.getMinutes();
+              
+              let bestMatch = null;
+              let smallestDiff = Infinity;
+              
+              for (const schedule of routeSchedules) {
+                const [h, m] = schedule.time.split(':').map(Number);
+                const scheduleDiff = Math.abs((h * 60 + m) - (predictedHour * 60 + predictedMinute));
+                if (scheduleDiff < smallestDiff) {
+                  smallestDiff = scheduleDiff;
+                  bestMatch = schedule;
+                }
+              }
+              
+              // Only use if within 30 minutes difference
+              if (bestMatch && smallestDiff <= 30) {
+                scheduled = bestMatch.time;
+              }
+            } else {
+              // No predicted time, use first available schedule
+              scheduled = routeSchedules[0].time;
+            }
+          }
         }
 
         // compute status/ delay text if we have both
