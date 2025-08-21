@@ -108,7 +108,34 @@ class GTFSLoader {
         
         file.on('finish', () => {
           file.close();
-          resolve();
+          
+          // Validate downloaded file is actually CSV, not HTML
+          try {
+            const fileContent = fs.readFileSync(localPath, 'utf8');
+            const firstLine = fileContent.split('\n')[0];
+            
+            // Check if it's HTML (virus scan page)
+            if (firstLine.includes('<!DOCTYPE html>') || firstLine.includes('<html')) {
+              console.log('Downloaded file is HTML virus scan page, not CSV data');
+              fs.unlinkSync(localPath); // Remove HTML file
+              reject(new Error('Downloaded HTML instead of CSV - Google Drive virus scan blocking'));
+              return;
+            }
+            
+            // Check if it's valid CSV header
+            if (!firstLine.includes('trip_id') || !firstLine.includes('stop_id')) {
+              console.log('Downloaded file does not contain expected CSV headers');
+              fs.unlinkSync(localPath); // Remove invalid file
+              reject(new Error('Downloaded file is not valid GTFS stop_times.txt'));
+              return;
+            }
+            
+            console.log('File validation passed - valid CSV data downloaded');
+            resolve();
+          } catch (error) {
+            console.log('Error validating downloaded file:', error.message);
+            reject(error);
+          }
         });
       };
       
