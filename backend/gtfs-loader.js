@@ -209,12 +209,61 @@ class GTFSLoader {
   async readCSVSync(filename) {
     try {
       const filePath = await this.ensureFile(filename);
+      
+      // Check file size before parsing
+      const stats = fs.statSync(filePath);
+      const fileSizeMB = (stats.size / (1024 * 1024)).toFixed(2);
+      console.log(`Parsing ${filename}: ${fileSizeMB}MB`);
+      
+      // For large files (>50MB), use streaming parser with memory limits
+      if (stats.size > 50 * 1024 * 1024) {
+        console.log(`Large file detected (${fileSizeMB}MB) - using streaming parser with limits`);
+        return await this.parseCSVStreaming(filePath, filename);
+      }
+      
+      // For smaller files, use synchronous parsing
       const raw = fs.readFileSync(filePath, 'utf8');
       return parse(raw, { columns: true, skip_empty_lines: true });
     } catch (error) {
-      console.warn(`Warning: ${filename} not found or unreadable`);
+      console.warn(`Warning: ${filename} not found or unreadable:`, error.message);
       return [];
     }
+  }
+
+  async parseCSVStreaming(filePath, filename) {
+    return new Promise((resolve, reject) => {
+      const results = [];
+      let rowCount = 0;
+      const maxRows = filename === 'stop_times.txt' ? 500000 : 100000; // Limit rows to prevent memory issues
+      
+      console.log(`Streaming parse with max ${maxRows} rows for ${filename}`);
+      
+      const stream = fs.createReadStream(filePath)
+        .pipe(parse({ 
+          columns: true, 
+          skip_empty_lines: true,
+          max_records: maxRows // Built-in limit
+        }));
+      
+      stream.on('data', (row) => {
+        results.push(row);
+        rowCount++;
+        
+        if (rowCount % 50000 === 0) {
+          console.log(`Processed ${rowCount} rows of ${filename}...`);
+        }
+      });
+      
+      stream.on('end', () => {
+        console.log(`Completed parsing ${filename}: ${results.length} rows loaded`);
+        resolve(results);
+      });
+      
+      stream.on('error', (error) => {
+        console.error(`Error parsing ${filename}:`, error.message);
+        reject(error);
+      });
+    });
   }
 
   async loadAllFiles() {
