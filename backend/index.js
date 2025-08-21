@@ -155,6 +155,10 @@ async function initializeGTFS() {
     console.log('GTFS data loaded successfully');
     console.log(`Scheduled times loaded: ${Object.keys(scheduledByTripStop).length}`);
     console.log(`Route-based schedules loaded: ${Object.keys(scheduledByRouteStop).length}`);
+    
+    // Debug: Show sample route data
+    console.log('Sample routes:', routes.slice(0, 5).map(r => ({ id: r.route_id, short: r.route_short_name, long: r.route_long_name })));
+    console.log('Sample route-based schedule keys:', Object.keys(scheduledByRouteStop).slice(0, 10));
   } catch (error) {
     console.error('Failed to load GTFS data:', error);
     // Continue with empty data - app will show demo mode
@@ -310,6 +314,11 @@ app.get('/station/:stationId', async (req, res) => {
           // Extract route short name from routeId (e.g., "340-4158" -> "340")
           const routeShortName = routeId.split('-')[0];
           const routeSchedules = scheduledByRouteStop[`${routeShortName}|${stopId}`];
+          
+          // Debug first few attempts
+          if (results.length < 3) {
+            console.log(`DEBUG: Looking for route ${routeShortName} at stop ${stopId}, found:`, routeSchedules ? routeSchedules.length : 0, 'schedules');
+          }
           
           if (routeSchedules && routeSchedules.length > 0) {
             // Find the closest scheduled time to the predicted time
