@@ -292,18 +292,26 @@ app.get('/station/:stationId', async (req, res) => {
         if (!stopId) continue;
         if (!childStops.has(stopId)) continue;
 
-        // predicted times (from feed)
-        const arrivalObj = stu.arrival || stu.arrival || null;
-        const departureObj = stu.departure || stu.departure || null;
+        // predicted times (from feed) and delays
+        const arrivalObj = stu.arrival || null;
+        const departureObj = stu.departure || null;
 
         let predictedTs = null;
         let predictedType = null;
+        let delaySeconds = null;
+        
         if (arrivalObj && arrivalObj.time) {
-          predictedTs = Number(arrivalObj.time) * 1000;
+          // Handle Long objects from protobuf
+          const timeValue = arrivalObj.time.low !== undefined ? arrivalObj.time.low : Number(arrivalObj.time);
+          predictedTs = timeValue * 1000;
           predictedType = 'arrival';
+          delaySeconds = arrivalObj.delay !== undefined ? arrivalObj.delay : null;
         } else if (departureObj && departureObj.time) {
-          predictedTs = Number(departureObj.time) * 1000;
+          // Handle Long objects from protobuf
+          const timeValue = departureObj.time.low !== undefined ? departureObj.time.low : Number(departureObj.time);
+          predictedTs = timeValue * 1000;
           predictedType = 'departure';
+          delaySeconds = departureObj.delay !== undefined ? departureObj.delay : null;
         }
 
         // scheduled time (from static stop_times if available)
@@ -315,10 +323,7 @@ app.get('/station/:stationId', async (req, res) => {
           const routeShortName = routeId.split('-')[0];
           const routeSchedules = scheduledByRouteStop[`${routeShortName}|${stopId}`];
           
-          // Debug first few attempts
-          if (results.length < 3) {
-            console.log(`DEBUG: Looking for route ${routeShortName} at stop ${stopId}, found:`, routeSchedules ? routeSchedules.length : 0, 'schedules');
-          }
+
           
           if (routeSchedules && routeSchedules.length > 0) {
             // Find the closest scheduled time to the predicted time
@@ -342,7 +347,6 @@ app.get('/station/:stationId', async (req, res) => {
               // Only use if within 30 minutes difference
               if (bestMatch && smallestDiff <= 30) {
                 scheduled = bestMatch.time;
-                console.log(`DEBUG: Found scheduled time ${scheduled} for route ${routeShortName} at stop ${stopId}`);
               }
             } else {
               // No predicted time, use first available schedule
@@ -351,44 +355,27 @@ app.get('/station/:stationId', async (req, res) => {
           }
         }
         
-        // Final fallback: create estimated scheduled time from predicted time
+        // Final fallback: create estimated scheduled time from predicted time (in Brisbane timezone)
         if (!scheduled && predictedTs) {
           const predictedTime = new Date(predictedTs);
-          const hours = String(predictedTime.getHours()).padStart(2, '0');
-          const minutes = String(predictedTime.getMinutes()).padStart(2, '0');
+          // Convert to Brisbane time for the scheduled time display
+          const brisbaneTime = new Date(predictedTime.toLocaleString('en-US', {timeZone: 'Australia/Brisbane'}));
+          const hours = String(brisbaneTime.getHours()).padStart(2, '0');
+          const minutes = String(brisbaneTime.getMinutes()).padStart(2, '0');
           scheduled = `${hours}:${minutes}:00`;
-          console.log(`DEBUG: Using estimated scheduled time ${scheduled} for route ${routeId}`);
         }
 
-        // compute status/ delay text if we have both
+        // compute status using the delay from GTFS-RT feed
         let status = 'Scheduled';
-        if (predictedTs && scheduled) {
-          // scheduled is like "14:35:00" in Brisbane timezone
-          const [h, m, s] = scheduled.split(':').map(x => parseInt(x, 10));
-          let scheduledHour = isNaN(h) ? 0 : h;
-          
-          // Get today's date in Brisbane timezone
-          const today = new Date();
-          const brisbaneOffset = 10 * 60; // Brisbane is UTC+10 (600 minutes)
-          
-          // Create scheduled time assuming it's in Brisbane timezone
-          // First create it as if it's UTC, then adjust for Brisbane offset
-          let scheduledDate = new Date(Date.UTC(today.getUTCFullYear(), today.getUTCMonth(), today.getUTCDate(), scheduledHour % 24, m || 0, s || 0));
-          
-          // Handle 24+ hour stops (some GTFS use 25:xx for after midnight)
-          if (scheduledHour >= 24) {
-            scheduledDate.setUTCDate(scheduledDate.getUTCDate() + 1);
+        if (delaySeconds !== null && delaySeconds !== undefined) {
+          // delaySeconds is provided directly by GTFS-RT feed
+          if (delaySeconds > 60) {
+            status = `Delayed +${Math.round(delaySeconds/60)}m`;
+          } else if (delaySeconds < -60) {
+            status = `Early ${Math.round(-delaySeconds/60)}m`;
+          } else {
+            status = 'On time';
           }
-          
-          // Adjust for Brisbane timezone (subtract 10 hours to convert Brisbane time to UTC)
-          const scheduledMs = scheduledDate.getTime() - (brisbaneOffset * 60 * 1000);
-          
-          const delaySeconds = Math.round((predictedTs - scheduledMs) / 1000);
-          if (delaySeconds > 60) status = `Delayed +${Math.round(delaySeconds/60)}m`;
-          else if (delaySeconds < -60) status = `Early ${Math.round(-delaySeconds/60)}m`;
-          else status = 'On time';
-        } else if (tu.delay) {
-          status = (tu.delay > 0) ? `Delayed ${Math.round(tu.delay/60)}m` : 'On time';
         }
 
         // Only include future departures (within next 2 hours, not more than 5 minutes in the past)
@@ -409,10 +396,11 @@ app.get('/station/:stationId', async (req, res) => {
           stopName: stopNameById[stopId] || null,
           scheduled: scheduled, // as HH:MM:SS string (may be null)
           predicted: predictedTs ? new Date(predictedTs).toISOString() : null,
-          predictedLocal: predictedTs ? new Date(predictedTs).toLocaleString() : null,
+          predictedLocal: predictedTs ? new Date(predictedTs).toLocaleString('en-AU', {timeZone: 'Australia/Brisbane'}) : null,
           predictedEpochMs: predictedTs || null,
           type: predictedType || 'unknown',
-          status
+          status,
+          delaySeconds: delaySeconds // Add delay info for debugging
         });
       }
     }
