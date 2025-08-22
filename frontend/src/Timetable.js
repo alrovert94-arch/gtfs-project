@@ -365,7 +365,7 @@ const Timetable = forwardRef(function Timetable({ stationId = 'place_kgbs', onUp
                     <div className="route-info">
                       <span className="route-icon">{getRouteIcon(route.type)}</span>
                       <div className="route-details">
-                        <span className="route-number" data-type={route.type}>{route.number}</span>
+                        <span className="route-number">{route.number}</span>
                         <span className="route-name">{route.name}</span>
                       </div>
                     </div>
@@ -421,7 +421,7 @@ const Timetable = forwardRef(function Timetable({ stationId = 'place_kgbs', onUp
                   <div className="route-info">
                     <span className="route-icon">{getRouteIcon(route.type)}</span>
                     <div className="route-details">
-                      <span className="route-number" data-type={route.type}>{route.number}</span>
+                      <span className="route-number">{route.number}</span>
                       <span className="route-name">{route.name}</span>
                     </div>
                   </div>

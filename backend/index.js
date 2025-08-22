@@ -352,65 +352,41 @@ app.get('/station/:stationId', async (req, res) => {
         }
         
         // Final fallback: create estimated scheduled time from predicted time
-        let isEstimatedSchedule = false;
         if (!scheduled && predictedTs) {
-          // Convert predicted time to Brisbane timezone for display
-          const predictedBrisbane = new Date(predictedTs);
-          const brisbaneTime = new Date(predictedBrisbane.toLocaleString("en-US", {timeZone: "Australia/Brisbane"}));
-          const hours = String(brisbaneTime.getHours()).padStart(2, '0');
-          const minutes = String(brisbaneTime.getMinutes()).padStart(2, '0');
+          const predictedTime = new Date(predictedTs);
+          const hours = String(predictedTime.getHours()).padStart(2, '0');
+          const minutes = String(predictedTime.getMinutes()).padStart(2, '0');
           scheduled = `${hours}:${minutes}:00`;
-          isEstimatedSchedule = true;
-          console.log(`DEBUG: Using estimated scheduled time ${scheduled} for route ${routeId} (from predicted Brisbane time)`);
+          console.log(`DEBUG: Using estimated scheduled time ${scheduled} for route ${routeId}`);
         }
 
         // compute status/ delay text if we have both
         let status = 'Scheduled';
         if (predictedTs && scheduled) {
-          // scheduled is like "14:35:00" in Brisbane local time
+          // scheduled is like "14:35:00" in Brisbane timezone
           const [h, m, s] = scheduled.split(':').map(x => parseInt(x, 10));
           let scheduledHour = isNaN(h) ? 0 : h;
           
-          // Get current date in Brisbane timezone
-          const now = new Date();
-          const brisbaneTime = new Date(now.toLocaleString("en-US", {timeZone: "Australia/Brisbane"}));
+          // Get today's date in Brisbane timezone
+          const today = new Date();
+          const brisbaneOffset = 10 * 60; // Brisbane is UTC+10 (600 minutes)
           
-          // Create scheduled time in Brisbane timezone for today
-          let scheduledDate = new Date(brisbaneTime.getFullYear(), brisbaneTime.getMonth(), brisbaneTime.getDate(), scheduledHour % 24, m || 0, s || 0);
+          // Create scheduled time assuming it's in Brisbane timezone
+          // First create it as if it's UTC, then adjust for Brisbane offset
+          let scheduledDate = new Date(Date.UTC(today.getUTCFullYear(), today.getUTCMonth(), today.getUTCDate(), scheduledHour % 24, m || 0, s || 0));
           
           // Handle 24+ hour stops (some GTFS use 25:xx for after midnight)
           if (scheduledHour >= 24) {
-            scheduledDate.setDate(scheduledDate.getDate() + 1);
+            scheduledDate.setUTCDate(scheduledDate.getUTCDate() + 1);
           }
           
-          // Convert Brisbane scheduled time to UTC for comparison with predicted time
-          const scheduledMs = scheduledDate.getTime();
+          // Adjust for Brisbane timezone (subtract 10 hours to convert Brisbane time to UTC)
+          const scheduledMs = scheduledDate.getTime() - (brisbaneOffset * 60 * 1000);
           
           const delaySeconds = Math.round((predictedTs - scheduledMs) / 1000);
-          
-          // Only calculate delay if we have a real scheduled time (not estimated from predicted)
-          const predictedBrisbane = new Date(predictedTs).toLocaleString("en-US", {timeZone: "Australia/Brisbane"});
-          
-          // Debug logging for first few entries
-          if (results.length < 2) {
-            console.log(`DEBUG TIME CALC: Route ${routeId}`);
-            console.log(`  Scheduled: ${scheduled} (Brisbane local)`);
-            console.log(`  Predicted: ${new Date(predictedTs).toISOString()} (UTC)`);
-            console.log(`  Predicted Brisbane: ${predictedBrisbane}`);
-            console.log(`  Scheduled Date: ${scheduledDate.toISOString()}`);
-            console.log(`  Delay: ${delaySeconds}s (${Math.round(delaySeconds/60)}m)`);
-            console.log(`  Is Estimated: ${isEstimatedSchedule}`);
-          }
-          
-          if (isEstimatedSchedule) {
-            status = 'Scheduled'; // Don't show delay for estimated times
-          } else if (delaySeconds > 60) {
-            status = `Delayed ${Math.round(delaySeconds/60)}m`;
-          } else if (delaySeconds < -60) {
-            status = `Early ${Math.round(-delaySeconds/60)}m`;
-          } else {
-            status = 'On time';
-          }
+          if (delaySeconds > 60) status = `Delayed +${Math.round(delaySeconds/60)}m`;
+          else if (delaySeconds < -60) status = `Early ${Math.round(-delaySeconds/60)}m`;
+          else status = 'On time';
         } else if (tu.delay) {
           status = (tu.delay > 0) ? `Delayed ${Math.round(tu.delay/60)}m` : 'On time';
         }
