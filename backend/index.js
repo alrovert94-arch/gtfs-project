@@ -581,6 +581,17 @@ app.get('/stations-list', (req, res) => {
   }
 });
 
+// Lookup stop names by ID
+app.get('/lookup/:stopId', (req, res) => {
+  try {
+    const stopId = req.params.stopId;
+    const stopName = stopNameById[stopId];
+    res.json({ stopId, stopName: stopName || 'Not found' });
+  } catch (err) {
+    res.status(500).json({ error: err.message || String(err) });
+  }
+});
+
 // Debug endpoint to analyze station stop matching
 app.get('/debug/:stationId', async (req, res) => {
   try {
