@@ -246,12 +246,44 @@ app.get('/health', (req, res) => {
   });
 });
 
+// Debug endpoint to see what stops are in GTFS-RT feed
+app.get('/debug/gtfs-rt-stops', async (req, res) => {
+  try {
+    const tripEntities = await fetchGtfsRt(TRIPUPDATES_URL, tripUpdatesCache);
+    const stopIds = new Set();
+    
+    for (const entity of tripEntities) {
+      if (!entity.tripUpdate) continue;
+      const tu = entity.tripUpdate;
+      const stopTimeUpdates = tu.stopTimeUpdate || tu.stop_time_update || [];
+      
+      for (const stu of stopTimeUpdates) {
+        const stopId = stu.stopId || stu.stop_id;
+        if (stopId) stopIds.add(stopId);
+      }
+    }
+    
+    const stopIdArray = Array.from(stopIds).sort();
+    const kgsStops = stopIdArray.filter(id => id.includes('1078') || id.includes('10780') || id.includes('10781') || id.includes('10782') || id.includes('10783') || id.includes('10784') || id.includes('10785'));
+    
+    res.json({
+      totalStopsInFeed: stopIdArray.length,
+      sampleStops: stopIdArray.slice(0, 20),
+      kingGeorgeSquareStops: kgsStops,
+      allStopsContaining1078: stopIdArray.filter(id => id.includes('1078')),
+      fetchedAt: new Date().toISOString()
+    });
+  } catch (error) {
+    res.status(500).json({ error: error.message });
+  }
+});
+
 // Add root route
 app.get('/', (req, res) => {
   res.json({ 
     message: 'GTFS Transit API', 
     version: '1.0.0',
-    endpoints: ['/health', '/station/:stationId', '/refresh']
+    endpoints: ['/health', '/station/:stationId', '/refresh', '/debug/gtfs-rt-stops']
   });
 });
 
