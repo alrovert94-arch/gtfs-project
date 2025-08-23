@@ -312,6 +312,11 @@ app.get('/station/:stationId', async (req, res) => {
       parentStationMap[stationId].forEach(sid => childStops.add(sid));
     }
     childStops.add(stationId); // include the id itself
+    
+    // MANUAL MAPPING: Add real-time stop IDs that aren't in static GTFS parent_station mapping
+    if (stationId === 'place_kgbs') {
+      childStops.add('10'); // Ann Street Stop 10 at King George Square (real-time data)
+    }
 
     // fetch TripUpdates
     const tripEntities = await fetchGtfsRt(TRIPUPDATES_URL, tripUpdatesCache);
