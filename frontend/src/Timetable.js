@@ -217,10 +217,13 @@ const Timetable = forwardRef(function Timetable({ stationId = 'place_kgbs', onUp
         setLoading(true);
       }
       
+      console.log('Fetching from:', `${API_BASE}/station/${stationId}?count=20`);
       const res = await fetch(`${API_BASE}/station/${stationId}?count=20`);
       if (!res.ok) throw new Error(await res.text());
       const j = await res.json();
+      console.log('API Response:', j);
       const results = j.results || [];
+      console.log('Results count:', results.length);
       setItems(results);
       setErr(null);
       const now = new Date();
@@ -233,6 +236,7 @@ const Timetable = forwardRef(function Timetable({ stationId = 'place_kgbs', onUp
         onStatsUpdate(stats);
       }
     } catch (e) {
+      console.error('Load error:', e);
       setErr(e.message || String(e));
     } finally {
       setLoading(false);
