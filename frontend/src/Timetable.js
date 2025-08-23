@@ -1,6 +1,6 @@
 import React, { useEffect, useState, forwardRef, useImperativeHandle, useMemo, useCallback } from 'react';
 
-const API_BASE = process.env.REACT_APP_API_URL || 'http://localhost:3000';
+const API_BASE = process.env.REACT_APP_API_URL || 'https://gtfs-transit-backend-hppz.onrender.com';
 
 function formatTime(iso) {
   if (!iso) return '-';
