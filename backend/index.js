@@ -275,11 +275,21 @@ app.get('/debug/gtfs-rt-stops', async (req, res) => {
     const stopIdArray = Array.from(stopIds).sort();
     const kgsStops = stopIdArray.filter(id => id.includes('1078') || id.includes('10780') || id.includes('10781') || id.includes('10782') || id.includes('10783') || id.includes('10784') || id.includes('10785'));
     
+    // Look for stops that might be King George Square by checking stop names
+    const stopDetails = [];
+    for (const stopId of stopIdArray.slice(0, 100)) { // Check first 100 stops
+      const stopName = stopNameById[stopId];
+      if (stopName && (stopName.toLowerCase().includes('king george') || stopName.toLowerCase().includes('george square'))) {
+        stopDetails.push({ id: stopId, name: stopName });
+      }
+    }
+    
     res.json({
       totalStopsInFeed: stopIdArray.length,
       sampleStops: stopIdArray.slice(0, 20),
       kingGeorgeSquareStops: kgsStops,
       allStopsContaining1078: stopIdArray.filter(id => id.includes('1078')),
+      possibleKGSByName: stopDetails,
       fetchedAt: new Date().toISOString()
     });
   } catch (error) {
