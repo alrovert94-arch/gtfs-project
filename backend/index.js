@@ -246,7 +246,16 @@ app.get('/health', (req, res) => {
   });
 });
 
-// Debug endpoint to see what stops are in GTFS-RT feed
+// Add root route
+app.get('/', (req, res) => {
+  res.json({ 
+    message: 'GTFS Transit API', 
+    version: '1.0.0',
+    endpoints: ['/health', '/station/:stationId', '/refresh', '/debug/gtfs-rt-stops']
+  });
+});
+
+// Debug endpoint to see what stops are in GTFS-RT feed (MUST be before /station/:stationId)
 app.get('/debug/gtfs-rt-stops', async (req, res) => {
   try {
     const tripEntities = await fetchGtfsRt(TRIPUPDATES_URL, tripUpdatesCache);
@@ -277,16 +286,6 @@ app.get('/debug/gtfs-rt-stops', async (req, res) => {
     res.status(500).json({ error: error.message });
   }
 });
-
-// Add root route
-app.get('/', (req, res) => {
-  res.json({ 
-    message: 'GTFS Transit API', 
-    version: '1.0.0',
-    endpoints: ['/health', '/station/:stationId', '/refresh', '/debug/gtfs-rt-stops']
-  });
-});
-
 
 // API: station
 // Example: /station/place_kgbs?count=20
