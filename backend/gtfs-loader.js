@@ -241,7 +241,7 @@ class GTFSLoader {
     return new Promise((resolve, reject) => {
       const results = [];
       let rowCount = 0;
-      const maxRows = filename === 'stop_times.txt' ? 200000 : 100000; // Reduced limit for memory safety
+      const maxRows = filename === 'stop_times.txt' ? 300000 : 100000; // Reduced limit for memory safety
       let limitReached = false;
       
       console.log(`Streaming parse with HARD LIMIT of ${maxRows} rows for ${filename}`);

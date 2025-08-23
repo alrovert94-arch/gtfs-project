@@ -334,67 +334,67 @@ const Timetable = forwardRef(function Timetable({ stationId = 'place_kgbs', onUp
     );
   }
 
-  if (!items.length) {
-    // Use memoized demo data
+  // if (!items.length) {
+  //   // Use memoized demo data
 
-    return (
-      <div className="timetable-container">
-        <div style={{ padding: '16px', textAlign: 'center', background: 'rgba(255, 193, 7, 0.1)', borderBottom: '1px solid rgba(255, 193, 7, 0.3)', color: '#856404' }}>
-          ⚠️ Demo Mode - No live services currently available
-        </div>
-        <table className="timetable">
-          <thead>
-            <tr>
-              <th>Route</th>
-              <th>Scheduled</th>
-              <th>Predicted</th>
-              <th>Countdown</th>
-              <th>Platform</th>
-              <th>Status</th>
-            </tr>
-          </thead>
-          <tbody>
-            {demoItems.map((u, i) => {
-              const route = parseRouteName(u.routeName || u.routeId);
-              // Use API status if available and reasonable, otherwise calculate
-              const apiStatus = u.status;
-              const calculatedStatus = (apiStatus && !apiStatus.includes('+1442m')) ? apiStatus : calculateStatus(u.scheduled, u.predicted);
-              return (
-                <tr key={i} style={{ opacity: 0.7 }}>
-                  <td className="route-cell">
-                    <div className="route-info">
-                      <span className="route-icon">{getRouteIcon(route.type)}</span>
-                      <div className="route-details">
-                        <span className="route-number">{route.number}</span>
-                        <span className="route-name">{route.name}</span>
-                      </div>
-                    </div>
-                  </td>
-                  <td className="time-cell">
-                    {formatScheduledTime(u.scheduled)}
-                  </td>
-                  <td className="time-cell predicted-time">
-                    {formatTime(u.predicted)}
-                  </td>
-                  <td className={getCountdownClass(u.predicted)}>
-                    {getCountdownText(u.predicted)}
-                  </td>
-                  <td className="platform-cell">
-                    {u.stopName || u.stopId}
-                  </td>
-                  <td className="status-cell">
-                    <span className={getStatusClass(calculatedStatus)}>
-                      {calculatedStatus}
-                    </span>
-                  </td>
-                </tr>
-              );
-            })}
-          </tbody>
-        </table>
-      </div>
-    );
-  }
+  //   return (
+  //     <div className="timetable-container">
+  //       <div style={{ padding: '16px', textAlign: 'center', background: 'rgba(255, 193, 7, 0.1)', borderBottom: '1px solid rgba(255, 193, 7, 0.3)', color: '#856404' }}>
+  //         ⚠️ Demo Mode - No live services currently available
+  //       </div>
+  //       <table className="timetable">
+  //         <thead>
+  //           <tr>
+  //             <th>Route</th>
+  //             <th>Scheduled</th>
+  //             <th>Predicted</th>
+  //             <th>Countdown</th>
+  //             <th>Platform</th>
+  //             <th>Status</th>
+  //           </tr>
+  //         </thead>
+  //         <tbody>
+  //           {demoItems.map((u, i) => {
+  //             const route = parseRouteName(u.routeName || u.routeId);
+  //             // Use API status if available and reasonable, otherwise calculate
+  //             const apiStatus = u.status;
+  //             const calculatedStatus = (apiStatus && !apiStatus.includes('+1442m')) ? apiStatus : calculateStatus(u.scheduled, u.predicted);
+  //             return (
+  //               <tr key={i} style={{ opacity: 0.7 }}>
+  //                 <td className="route-cell">
+  //                   <div className="route-info">
+  //                     <span className="route-icon">{getRouteIcon(route.type)}</span>
+  //                     <div className="route-details">
+  //                       <span className="route-number">{route.number}</span>
+  //                       <span className="route-name">{route.name}</span>
+  //                     </div>
+  //                   </div>
+  //                 </td>
+  //                 <td className="time-cell">
+  //                   {formatScheduledTime(u.scheduled)}
+  //                 </td>
+  //                 <td className="time-cell predicted-time">
+  //                   {formatTime(u.predicted)}
+  //                 </td>
+  //                 <td className={getCountdownClass(u.predicted)}>
+  //                   {getCountdownText(u.predicted)}
+  //                 </td>
+  //                 <td className="platform-cell">
+  //                   {u.stopName || u.stopId}
+  //                 </td>
+  //                 <td className="status-cell">
+  //                   <span className={getStatusClass(calculatedStatus)}>
+  //                     {calculatedStatus}
+  //                   </span>
+  //                 </td>
+  //               </tr>
+  //             );
+  //           })}
+  //         </tbody>
+  //       </table>
+  //     </div>
+  //   );
+  // }
 
   return (
     <div className="timetable-container">
