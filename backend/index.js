@@ -571,6 +571,49 @@ app.get('/stations-list', (req, res) => {
   }
 });
 
+// Debug endpoint to analyze station stop matching
+app.get('/debug/:stationId', async (req, res) => {
+  try {
+    const stationId = req.params.stationId;
+    
+    // Get child stops for this station
+    const childStops = new Set();
+    if (parentStationMap[stationId]) {
+      parentStationMap[stationId].forEach(sid => childStops.add(sid));
+    }
+    childStops.add(stationId);
+    
+    // Get all stop IDs from current GTFS-RT feed
+    const tripEntities = await fetchGtfsRt(TRIPUPDATES_URL, tripUpdatesCache);
+    const gtfsRtStopIds = new Set();
+    
+    for (const entity of tripEntities) {
+      if (!entity.tripUpdate) continue;
+      const stopTimeUpdates = entity.tripUpdate.stopTimeUpdate || entity.tripUpdate.stop_time_update || [];
+      
+      for (const stu of stopTimeUpdates) {
+        const stopId = stu.stopId || stu.stop_id || null;
+        if (stopId) gtfsRtStopIds.add(stopId);
+      }
+    }
+    
+    // Find intersection
+    const matchingStops = [...childStops].filter(stopId => gtfsRtStopIds.has(stopId));
+    
+    res.json({
+      stationId,
+      childStops: [...childStops],
+      childStopsWithNames: [...childStops].map(id => ({ id, name: stopNameById[id] || 'Unknown' })),
+      gtfsRtStopCount: gtfsRtStopIds.size,
+      gtfsRtStopSample: [...gtfsRtStopIds].slice(0, 20),
+      matchingStops,
+      hasMatches: matchingStops.length > 0
+    });
+  } catch (err) {
+    res.status(500).json({ error: err.message || String(err) });
+  }
+});
+
 
 app.listen(PORT, '0.0.0.0', () => {
   console.log(`GTFS-RT parser listening on port ${PORT}`);
