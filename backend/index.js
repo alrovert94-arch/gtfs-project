@@ -266,11 +266,17 @@ app.get('/station/:stationId', async (req, res) => {
     // Resolve stop_id set for the station:
     // 1) If the stationId is a parent_station, use its children
     // 2) Also include the stationId itself (sometimes feeds use parent id)
+    // 3) Handle GTFS-RT stop ID prefixes (e.g., "10780" -> "310780")
     const childStops = new Set();
     if (parentStationMap[stationId]) {
-      parentStationMap[stationId].forEach(sid => childStops.add(sid));
+      parentStationMap[stationId].forEach(sid => {
+        childStops.add(sid);
+        // Add prefixed versions for GTFS-RT compatibility
+        childStops.add('3' + sid); // Common pattern: 10780 -> 310780
+      });
     }
     childStops.add(stationId); // include the id itself
+    childStops.add('3' + stationId); // Add prefixed version
 
     // fetch TripUpdates
     const tripEntities = await fetchGtfsRt(TRIPUPDATES_URL, tripUpdatesCache);
@@ -315,13 +321,17 @@ app.get('/station/:stationId', async (req, res) => {
         }
 
         // scheduled time (from static stop_times if available)
-        let scheduled = scheduledByTripStop[`${tripId}|${stopId}`] || null;
+        // Handle prefixed stop IDs by trying both original and unprefixed versions
+        const originalStopId = stopId.replace(/^3/, ''); // Remove "3" prefix if present
+        let scheduled = scheduledByTripStop[`${tripId}|${stopId}`] || 
+                       scheduledByTripStop[`${tripId}|${originalStopId}`] || null;
         
         // Fallback: try route-based matching if exact trip match fails
         if (!scheduled && routeId) {
           // Extract route short name from routeId (e.g., "340-4158" -> "340")
           const routeShortName = routeId.split('-')[0];
-          const routeSchedules = scheduledByRouteStop[`${routeShortName}|${stopId}`];
+          const routeSchedules = scheduledByRouteStop[`${routeShortName}|${stopId}`] ||
+                                scheduledByRouteStop[`${routeShortName}|${originalStopId}`];
           
 
           
@@ -393,7 +403,7 @@ app.get('/station/:stationId', async (req, res) => {
           routeName: routeNameById[routeId] || routeId || null,
           headsign: headsign || (tu.trip && tu.trip.trip_headsign) || null,
           stopId,
-          stopName: stopNameById[stopId] || null,
+          stopName: stopNameById[stopId] || stopNameById[stopId.replace(/^3/, '')] || null,
           scheduled: scheduled, // as HH:MM:SS string (may be null)
           predicted: predictedTs ? new Date(predictedTs).toISOString() : null,
           predictedLocal: predictedTs ? new Date(predictedTs).toLocaleString('en-AU', {timeZone: 'Australia/Brisbane'}) : null,
@@ -576,12 +586,17 @@ app.get('/debug/:stationId', async (req, res) => {
   try {
     const stationId = req.params.stationId;
     
-    // Get child stops for this station
+    // Get child stops for this station (same logic as main endpoint)
     const childStops = new Set();
     if (parentStationMap[stationId]) {
-      parentStationMap[stationId].forEach(sid => childStops.add(sid));
+      parentStationMap[stationId].forEach(sid => {
+        childStops.add(sid);
+        // Add prefixed versions for GTFS-RT compatibility
+        childStops.add('3' + sid); // Common pattern: 10780 -> 310780
+      });
     }
-    childStops.add(stationId);
+    childStops.add(stationId); // include the id itself
+    childStops.add('3' + stationId); // Add prefixed version
     
     // Get all stop IDs from current GTFS-RT feed
     const tripEntities = await fetchGtfsRt(TRIPUPDATES_URL, tripUpdatesCache);
