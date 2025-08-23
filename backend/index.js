@@ -277,6 +277,7 @@ app.get('/station/:stationId', async (req, res) => {
 
     const results = [];
 
+    // First, try to get real-time data
     for (const entity of tripEntities) {
       if (!entity.tripUpdate) continue;
       const tu = entity.tripUpdate;
@@ -403,6 +404,72 @@ app.get('/station/:stationId', async (req, res) => {
           delaySeconds: delaySeconds // Add delay info for debugging
         });
       }
+    }
+
+    // If no real-time results found, provide scheduled data as fallback
+    if (results.length === 0) {
+      console.log(`No real-time data for ${stationId}, providing scheduled fallback`);
+      
+      // Get current time in Brisbane timezone
+      const now = new Date();
+      const brisbaneTime = new Date(now.toLocaleString("en-US", {timeZone: "Australia/Brisbane"}));
+      const currentHour = brisbaneTime.getHours();
+      const currentMinute = brisbaneTime.getMinutes();
+      const currentTimeMinutes = currentHour * 60 + currentMinute;
+      
+      // Look for scheduled departures for each child stop
+      for (const stopId of childStops) {
+        // Check route-based schedules for this stop
+        for (const [routeStopKey, schedules] of Object.entries(scheduledByRouteStop)) {
+          const [routeShort, scheduleStopId] = routeStopKey.split('|');
+          
+          if (scheduleStopId === stopId && schedules && schedules.length > 0) {
+            // Find upcoming departures (next 2 hours)
+            for (const schedule of schedules) {
+              if (!schedule.time) continue;
+              
+              const [h, m] = schedule.time.split(':').map(Number);
+              const scheduleMinutes = h * 60 + m;
+              
+              // Only show departures that are upcoming (within next 2 hours, not more than 5 minutes past)
+              const timeDiff = scheduleMinutes - currentTimeMinutes;
+              if (timeDiff >= -5 && timeDiff <= 120) { // -5 to 120 minutes
+                
+                // Create scheduled time as ISO string for today
+                const scheduledDate = new Date(brisbaneTime);
+                scheduledDate.setHours(h, m, 0, 0);
+                
+                // Find route name
+                const routeId = schedule.routeId || `${routeShort}-unknown`;
+                const routeName = routeNameById[routeId] || `${routeShort}`;
+                
+                results.push({
+                  tripId: schedule.tripId || `scheduled-${routeShort}-${stopId}-${schedule.time}`,
+                  routeId: routeId,
+                  routeName: routeName,
+                  headsign: null,
+                  stopId,
+                  stopName: stopNameById[stopId] || null,
+                  scheduled: schedule.time,
+                  predicted: null, // No real-time prediction
+                  predictedLocal: null,
+                  predictedEpochMs: null,
+                  type: 'scheduled',
+                  status: 'Scheduled',
+                  delaySeconds: null,
+                  isScheduledFallback: true // Flag to indicate this is fallback data
+                });
+              }
+            }
+          }
+        }
+      }
+      
+      // Limit results and sort by scheduled time
+      results.sort((a, b) => {
+        if (a.scheduled && b.scheduled) return a.scheduled.localeCompare(b.scheduled);
+        return 0;
+      });
     }
 
     // sort by predicted time if available; fall back to scheduled string
